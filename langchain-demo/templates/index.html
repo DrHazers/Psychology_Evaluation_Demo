@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>情绪AI对话</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0e7ff 0%, #f5f7fa 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', 'PingFang SC', Arial, sans-serif;
+        }
+        #chatbox {
+            max-width: 480px;
+            margin: 40px auto 0 auto;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px 0 rgba(0,0,0,0.08);
+            padding: 0 0 24px 0;
+            overflow: hidden;
+        }
+        #header {
+            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+            color: #fff;
+            padding: 24px 0 18px 0;
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        #status {
+            text-align: center;
+            margin: 18px 0 8px 0;
+            color: #6366f1;
+            font-size: 1.1rem;
+        }
+        .chat-area {
+            min-height: 120px;
+            padding: 0 24px;
+        }
+        .bubble {
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 18px;
+            margin: 8px 0;
+            max-width: 80%;
+            word-break: break-all;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px #e0e7ff;
+            line-height: 1.6;
+        }
+        .ai {
+            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+            color: #fff;
+            align-self: flex-start;
+        }
+        .user {
+            background: #f1f5f9;
+            color: #222;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .input-area {
+            padding: 0 24px;
+            margin-top: 10px;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1.5px solid #c7d2fe;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .input-row input:focus {
+            border: 1.5px solid #6366f1;
+        }
+        .input-row button {
+            margin-left: 10px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px #e0e7ff;
+        }
+        .input-row button:disabled {
+            background: #c7d2fe;
+            cursor: not-allowed;
+        }
+        #summary {
+            margin: 24px 24px 0 24px;
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 12px;
+            color: #374151;
+            font-size: 1.08rem;
+            box-shadow: 0 2px 8px #e0e7ff;
+        }
+        #startBtn {
+            display: block;
+            margin: 0 auto 18px auto;
+            padding: 12px 32px;
+            border: none;
+            border-radius: 24px;
+            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px #e0e7ff;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        #startBtn:disabled {
+            background: #c7d2fe;
+            cursor: not-allowed;
+        }
+        .loader {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #c7d2fe;
+            border-top: 3px solid #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        @media (max-width: 600px) {
+            #chatbox { max-width: 98vw; }
+            .chat-area, .input-area, #summary { padding-left: 8px; padding-right: 8px;}
+        }
+    </style>
+</head>
+<body>
+<div id="chatbox">
+    <div id="header">情绪AI对话</div>
+    <div id="status">点击下方按钮开始识别情绪</div>
+    <button id="startBtn">开始识别</button>
+    <div class="chat-area" id="questions"></div>
+    <div class="input-area" id="inputArea"></div>
+    <div id="summary"></div>
+</div>
+<script>
+    let emotion = '';
+    let questions = [];
+    let answers = [];
+    let current = 0;
+
+    function showLoader(msg) {
+        document.getElementById('status').innerHTML = `<span>${msg}</span><div class="loader"></div>`;
+    }
+
+    document.getElementById('startBtn').onclick = async function() {
+        this.disabled = true;
+        showLoader('正在拍照和识别情绪...');
+        document.getElementById('questions').innerHTML = '';
+        document.getElementById('inputArea').innerHTML = '';
+        document.getElementById('summary').innerHTML = '';
+        answers = [];
+        current = 0;
+        // 调用后端
+        const res = await fetch('/start', {method: 'POST'});
+        const data = await res.json();
+        if (data.status === 'ok') {
+            emotion = data.emotion;
+            questions = data.questions;
+            document.getElementById('status').innerHTML = `识别到情绪：<b>${emotion}</b>（置信度 ${data.score.toFixed(2)}）`;
+            showNextQuestion();
+        } else {
+            document.getElementById('status').innerText = data.msg;
+            this.disabled = false;
+        }
+    };
+
+    function showNextQuestion() {
+        if (current >= questions.length) {
+            submitAnswers();
+            return;
+        }
+        let chatArea = document.getElementById('questions');
+        let inputArea = document.getElementById('inputArea');
+        // 显示AI问题
+        let aiBubble = document.createElement('div');
+        aiBubble.className = 'bubble ai';
+        aiBubble.innerText = 'AI：' + questions[current];
+        chatArea.appendChild(aiBubble);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        // 显示输入框
+        inputArea.innerHTML = `
+            <form onsubmit="return false;" class="input-row">
+                <input type="text" id="ansInput" placeholder="请输入你的回答" autocomplete="off" autofocus>
+                <button id="sendBtn">发送</button>
+            </form>
+        `;
+        document.getElementById('ansInput').focus();
+        document.getElementById('sendBtn').onclick = function() {
+            let val = document.getElementById('ansInput').value.trim();
+            if (!val) return;
+            // 显示用户气泡
+            let userBubble = document.createElement('div');
+            userBubble.className = 'bubble user';
+            userBubble.innerText = '你：' + val;
+            chatArea.appendChild(userBubble);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            answers.push(val);
+            current++;
+            inputArea.innerHTML = '';
+            setTimeout(showNextQuestion, 400);
+        };
+    }
+
+    async function submitAnswers() {
+        showLoader('AI正在分析你的回答...');
+        document.getElementById('inputArea').innerHTML = '';
+        const res = await fetch('/summary', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({feedbacks: answers, emotion: emotion})
+        });
+        const data = await res.json();
+        document.getElementById('summary').innerHTML = `<b>情绪总结与建议：</b><br>${data.result}`;
+        document.getElementById('status').innerText = '对话结束，可以重新开始。';
+        document.getElementById('startBtn').disabled = false;
+    }
+</script>
+</body>
+</html>
