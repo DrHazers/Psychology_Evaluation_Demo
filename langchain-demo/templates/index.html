@@ -45,7 +45,7 @@
             border-radius: 18px;
             margin: 8px 0;
             max-width: 80%;
-            word-break: break-all;
+            word-break: break-word;
             font-size: 1rem;
             box-shadow: 0 2px 8px #e0e7ff;
             line-height: 1.6;
@@ -154,11 +154,10 @@
     <div class="input-area" id="inputArea"></div>
     <div id="summary"></div>
 </div>
+
 <script>
     let emotion = '';
-    let questions = [];
     let answers = [];
-    let current = 0;
 
     function showLoader(msg) {
         document.getElementById('status').innerHTML = `<span>${msg}</span><div class="loader"></div>`;
@@ -171,55 +170,66 @@
         document.getElementById('inputArea').innerHTML = '';
         document.getElementById('summary').innerHTML = '';
         answers = [];
-        current = 0;
-        // 调用后端
+
         const res = await fetch('/start', {method: 'POST'});
         const data = await res.json();
         if (data.status === 'ok') {
             emotion = data.emotion;
-            questions = data.questions;
             document.getElementById('status').innerHTML = `识别到情绪：<b>${emotion}</b>（置信度 ${data.score.toFixed(2)}）`;
-            showNextQuestion();
+            showQuestion(data.question);
         } else {
             document.getElementById('status').innerText = data.msg;
             this.disabled = false;
         }
     };
 
-    function showNextQuestion() {
-        if (current >= questions.length) {
-            submitAnswers();
-            return;
-        }
-        let chatArea = document.getElementById('questions');
-        let inputArea = document.getElementById('inputArea');
-        // 显示AI问题
-        let aiBubble = document.createElement('div');
+    function showQuestion(questionText) {
+        const chatArea = document.getElementById('questions');
+        const inputArea = document.getElementById('inputArea');
+
+        const aiBubble = document.createElement('div');
         aiBubble.className = 'bubble ai';
-        aiBubble.innerText = 'AI：' + questions[current];
+        aiBubble.innerText = 'AI：' + questionText;
         chatArea.appendChild(aiBubble);
         chatArea.scrollTop = chatArea.scrollHeight;
-        // 显示输入框
+
         inputArea.innerHTML = `
             <form onsubmit="return false;" class="input-row">
                 <input type="text" id="ansInput" placeholder="请输入你的回答" autocomplete="off" autofocus>
                 <button id="sendBtn">发送</button>
+                <button id="stopBtn" type="button">结束</button>
             </form>
         `;
-        document.getElementById('ansInput').focus();
-        document.getElementById('sendBtn').onclick = function() {
-            let val = document.getElementById('ansInput').value.trim();
+
+        document.getElementById('sendBtn').onclick = async function () {
+            const val = document.getElementById('ansInput').value.trim();
             if (!val) return;
-            // 显示用户气泡
-            let userBubble = document.createElement('div');
+
+            const userBubble = document.createElement('div');
             userBubble.className = 'bubble user';
             userBubble.innerText = '你：' + val;
             chatArea.appendChild(userBubble);
             chatArea.scrollTop = chatArea.scrollHeight;
+
             answers.push(val);
-            current++;
             inputArea.innerHTML = '';
-            setTimeout(showNextQuestion, 400);
+            showLoader('AI 正在思考下一个问题...');
+
+            const res = await fetch('/next', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({answer: val})
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                showQuestion(data.question);
+            } else {
+                document.getElementById('status').innerText = data.msg;
+            }
+        };
+
+        document.getElementById('stopBtn').onclick = function () {
+            submitAnswers();
         };
     }
 

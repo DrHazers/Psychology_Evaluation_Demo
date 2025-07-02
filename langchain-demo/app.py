@@ -1,11 +1,19 @@
 from flask import Flask, render_template, request, jsonify
 from emotion.camera import capture_face_image
 from emotion.face_emotion import analyze_emotion
-from emotion.question_generator import generate_questions_by_emotion
 from emotion.emotion_summary import summarize_emotion
 from modelchoise import models
+from langchain_core.messages import HumanMessage
 
 app = Flask(__name__)
+
+# 简易用户状态（仅用于原型）
+user_session = {
+    "emotion": {},
+    "feedbacks": [],
+    "chat_model": None,
+    "last_answer": ""
+}
 
 
 @app.route('/')
@@ -15,40 +23,78 @@ def index():
 
 @app.route('/start', methods=['POST'])
 def start():
-    # 拍照
     image_path = capture_face_image()
 
-    # 情绪识别（新版 analyze_emotion 返回一个 dict）
-    result = analyze_emotion(image_path)
+    emotion_result = analyze_emotion(image_path)  # 新结构返回 dict
+    top_emotion = emotion_result.get("top_emotion", "unknown")
+    score = emotion_result.get("score", 0.0)
+    sorted_emotions = emotion_result.get("sorted_emotions", [])
 
-    # 提取主要情绪和置信度
-    emotion = result.get("top_emotion", "unknown")
-    score = result.get("score", 0.0)
+    if top_emotion == "unknown":
+        return jsonify({'status': 'fail', 'msg': '无法识别面部情绪'})
 
-    if emotion == "unknown":
-        return jsonify({'status': 'fail', 'msg': '无法识别面部情绪，请重试'})
+    # 保存用户状态
+    user_session["emotion"] = {label: value for label, value in sorted_emotions}
+    user_session["feedbacks"] = []
+    user_session["last_answer"] = ""
+    user_session["chat_model"] = models.get_spark_chat_model()
 
-    # 生成问题
-    chat_model = models.get_spark_chat_model()
-    questions = generate_questions_by_emotion(emotion, chat_model)
+    # 第一个问题基于 top_emotion 生成
+    prompt = f"观察到用户表现出“{top_emotion}”情绪，请作为心理咨询师，提出一个开放式问题，引导用户表达内心感受。问题要具体、有同理心、避免评判。"
+    try:
+        response = user_session["chat_model"].invoke([HumanMessage(content=prompt)])
+        question = response.content.strip()
+    except Exception as e:
+        return jsonify({'status': 'fail', 'msg': '生成问题失败，请重试'})
 
     return jsonify({
         'status': 'ok',
-        'emotion': emotion,
-        'score': score,
-        'questions': questions,
-        'details': result.get("sorted_emotions", [])  # 可选返回情绪分布
+        'emotion': top_emotion,
+        'score': round(score, 2),
+        'details': sorted_emotions,
+        'question': question
+    })
+
+
+@app.route('/next', methods=['POST'])
+def next_question():
+    data = request.json
+    answer = data.get("answer", "").strip()
+    if not answer:
+        return jsonify({'status': 'fail', 'msg': '没有回答内容'})
+
+    user_session["feedbacks"].append(answer)
+    user_session["last_answer"] = answer
+
+    # 基于上一轮回答继续提问
+    prompt = f"用户刚才回答：“{answer}”，请基于该回答提出下一个开放式问题，引导其进一步表达内心。问题要有共情，不带评判。"
+    try:
+        response = user_session["chat_model"].invoke([HumanMessage(content=prompt)])
+        question = response.content.strip()
+    except Exception as e:
+        return jsonify({'status': 'fail', 'msg': '生成下一个问题失败，请重试'})
+
+    return jsonify({
+        'status': 'ok',
+        'question': question
     })
 
 
 @app.route('/summary', methods=['POST'])
 def summary():
-    data = request.json
-    feedbacks = data.get('feedbacks', [])
-    emotion = data.get('emotion', '')
-    chat_model = models.get_spark_chat_model()
-    result = summarize_emotion(feedbacks, emotion, chat_model)
-    return jsonify({'result': result})
+    if not user_session["feedbacks"]:
+        return jsonify({'status': 'fail', 'msg': '没有回答内容，无法总结'})
+
+    try:
+        summary_result = summarize_emotion(
+            user_session["feedbacks"],
+            user_session["emotion"],
+            user_session["chat_model"]
+        )
+    except Exception as e:
+        return jsonify({'status': 'fail', 'msg': '总结生成失败'})
+
+    return jsonify({'status': 'ok', 'result': summary_result})
 
 
 if __name__ == '__main__':
