@@ -5,6 +5,7 @@
     <title>情绪AI对话</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+        /* ...原有样式不变... */
         body {
             background: linear-gradient(135deg, #e0e7ff 0%, #f5f7fa 100%);
             min-height: 100vh;
@@ -12,7 +13,7 @@
             font-family: 'Segoe UI', 'PingFang SC', Arial, sans-serif;
         }
         #chatbox {
-            max-width: 480px;
+            max-width: 700px;
             margin: 40px auto 0 auto;
             background: #fff;
             border-radius: 18px;
@@ -37,29 +38,33 @@
         }
         .chat-area {
             min-height: 120px;
-            padding: 0 24px;
+            padding: 0 32px;
+            display: flex;
+            flex-direction: column;
         }
         .bubble {
-            display: inline-block;
-            padding: 12px 18px;
-            border-radius: 18px;
-            margin: 8px 0;
-            max-width: 80%;
+            display: block;
+            padding: 14px 22px;
+            border-radius: 16px;
+            margin: 10px 0;
+            max-width: 60%;
             word-break: break-word;
-            font-size: 1rem;
+            font-size: 1.08rem;
             box-shadow: 0 2px 8px #e0e7ff;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         .ai {
-            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
-            color: #fff;
+            background: #f4f6fb;
+            color: #222;
             align-self: flex-start;
+            border-top-left-radius: 0;
         }
         .user {
-            background: #f1f5f9;
-            color: #222;
+            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+            color: #fff;
             align-self: flex-end;
             margin-left: auto;
+            border-top-right-radius: 0;
         }
         .input-area {
             padding: 0 24px;
@@ -107,24 +112,6 @@
             font-size: 1.08rem;
             box-shadow: 0 2px 8px #e0e7ff;
         }
-        #startBtn {
-            display: block;
-            margin: 0 auto 18px auto;
-            padding: 12px 32px;
-            border: none;
-            border-radius: 24px;
-            background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
-            color: #fff;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 2px 8px #e0e7ff;
-            transition: background 0.2s, box-shadow 0.2s;
-        }
-        #startBtn:disabled {
-            background: #c7d2fe;
-            cursor: not-allowed;
-        }
         .loader {
             display: inline-block;
             width: 24px;
@@ -148,11 +135,18 @@
 <body>
 <div id="chatbox">
     <div id="header">情绪AI对话</div>
-    <div id="status">点击下方按钮开始识别情绪</div>
-    <button id="startBtn">开始识别</button>
+    <div id="status">请允许摄像头权限，点击下方按钮拍照并开始识别情绪</div>
+    <!-- 摄像头采集区 -->
+    <div id="cameraArea" style="text-align:center; margin: 10px 0;">
+        <video id="video" width="320" height="240" autoplay style="border-radius:12px; background:#222;"></video>
+        <br>
+        <button id="snapBtn" style="margin-top:16px; padding: 14px 40px; border: none; border-radius: 24px; background: linear-gradient(90deg, #34d399 0%, #60a5fa 100%); color: #fff; font-size: 1.15rem; font-weight: bold; box-shadow: 0 2px 8px #e0e7ff; cursor: pointer; transition: background 0.2s, box-shadow 0.2s; letter-spacing: 2px;">📸 拍照并开始识别</button>
+        <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    </div>
     <div class="chat-area" id="questions"></div>
     <div class="input-area" id="inputArea"></div>
     <div id="summary"></div>
+    <div id="restartArea" style="text-align:center; margin-top:18px;"></div>
 </div>
 
 <script>
@@ -163,23 +157,47 @@
         document.getElementById('status').innerHTML = `<span>${msg}</span><div class="loader"></div>`;
     }
 
-    document.getElementById('startBtn').onclick = async function() {
-        this.disabled = true;
-        showLoader('正在拍照和识别情绪...');
+    // 摄像头采集
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const snapBtn = document.getElementById('snapBtn');
+    let imageData = null;
+
+    // 打开摄像头
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => { document.getElementById('status').innerText = '无法访问摄像头: ' + err; });
+
+    // 拍照并上传
+    snapBtn.onclick = async function() {
+        // 拍照
+        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+        imageData = canvas.toDataURL('image/jpeg');
+        // 禁用按钮，显示加载
+        snapBtn.disabled = true;
+        showLoader('正在识别情绪...');
         document.getElementById('questions').innerHTML = '';
         document.getElementById('inputArea').innerHTML = '';
         document.getElementById('summary').innerHTML = '';
         answers = [];
 
-        const res = await fetch('/start', {method: 'POST'});
+        // 隐藏摄像头采集区
+        document.getElementById('cameraArea').style.display = 'none';
+
+        // 上传图片到后端
+        const res = await fetch('/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData })
+        });
         const data = await res.json();
+        snapBtn.disabled = false;
         if (data.status === 'ok') {
             emotion = data.emotion;
             document.getElementById('status').innerHTML = `识别到情绪：<b>${emotion}</b>（置信度 ${data.score.toFixed(2)}）`;
             showQuestion(data.question);
         } else {
             document.getElementById('status').innerText = data.msg;
-            this.disabled = false;
         }
     };
 
@@ -189,7 +207,7 @@
 
         const aiBubble = document.createElement('div');
         aiBubble.className = 'bubble ai';
-        aiBubble.innerText = 'AI：' + questionText;
+        aiBubble.innerText = questionText;
         chatArea.appendChild(aiBubble);
         chatArea.scrollTop = chatArea.scrollHeight;
 
@@ -207,7 +225,7 @@
 
             const userBubble = document.createElement('div');
             userBubble.className = 'bubble user';
-            userBubble.innerText = '你：' + val;
+            userBubble.innerText = val;
             chatArea.appendChild(userBubble);
             chatArea.scrollTop = chatArea.scrollHeight;
 
@@ -222,6 +240,7 @@
             });
             const data = await res.json();
             if (data.status === 'ok') {
+                document.getElementById('status').innerText = '';
                 showQuestion(data.question);
             } else {
                 document.getElementById('status').innerText = data.msg;
@@ -244,7 +263,11 @@
         const data = await res.json();
         document.getElementById('summary').innerHTML = `<b>情绪总结与建议：</b><br>${data.result}`;
         document.getElementById('status').innerText = '对话结束，可以重新开始。';
-        document.getElementById('startBtn').disabled = false;
+        // 显示重新开始按钮
+        document.getElementById('restartArea').innerHTML = `<button id="restartBtn" style="margin-top:12px; padding: 14px 40px; border: none; border-radius: 24px; background: linear-gradient(90deg, #6366f1 0%, #34d399 100%); color: #fff; font-size: 1.15rem; font-weight: bold; box-shadow: 0 2px 8px #e0e7ff; cursor: pointer; transition: background 0.2s, box-shadow 0.2s; letter-spacing: 2px;">🔄 重新开始</button>`;
+        document.getElementById('restartBtn').onclick = function() {
+            window.location.reload();
+        };
     }
 </script>
 </body>
