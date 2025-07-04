@@ -1,0 +1,157 @@
+body {
+    background: linear-gradient(135deg, #e0e7ff 0%, #f5f7fa 100%);
+    min-height: 100vh;
+    margin: 0;
+    font-family: 'Segoe UI', 'PingFang SC', Arial, sans-serif;
+}
+#chatbox {
+    max-width: 700px;
+    margin: 40px auto 0 auto;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px 0 rgba(0,0,0,0.08);
+    padding: 0 0 24px 0;
+    overflow: hidden;
+}
+#header {
+    background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+    color: #fff;
+    padding: 24px 0 18px 0;
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+#status {
+    text-align: center;
+    margin: 18px 0 8px 0;
+    color: #6366f1;
+    font-size: 1.1rem;
+}
+.chat-area {
+    min-height: 120px;
+    padding: 0 32px;
+    display: flex;
+    flex-direction: column;
+}
+.bubble {
+    display: block;
+    padding: 14px 22px;
+    border-radius: 16px;
+    margin: 10px 0;
+    max-width: 60%;
+    word-break: break-word;
+    font-size: 1.08rem;
+    box-shadow: 0 2px 8px #e0e7ff;
+    line-height: 1.7;
+}
+.ai {
+    background: #f4f6fb;
+    color: #222;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+}
+.user {
+    background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+    color: #fff;
+    align-self: flex-end;
+    margin-left: auto;
+    border-top-right-radius: 0;
+}
+.input-area {
+    padding: 0 24px;
+    margin-top: 10px;
+}
+.input-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1.5px solid #c7d2fe;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border 0.2s;
+}
+.input-row input:focus {
+    border: 1.5px solid #6366f1;
+}
+.input-row button {
+    margin-left: 10px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #6366f1 0%, #60a5fa 100%);
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px #e0e7ff;
+}
+.input-row button:disabled {
+    background: #c7d2fe;
+    cursor: not-allowed;
+}
+#summary {
+    margin: 24px 24px 0 24px;
+    background: #f1f5f9;
+    padding: 16px;
+    border-radius: 12px;
+    color: #374151;
+    font-size: 1.08rem;
+    box-shadow: 0 2px 8px #e0e7ff;
+}
+.loader {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid #c7d2fe;
+    border-top: 3px solid #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg);}
+    100% { transform: rotate(360deg);}
+}
+.start-btn {
+    margin-top: 16px;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 24px;
+    background: linear-gradient(90deg, #34d399 0%, #60a5fa 100%);
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: bold;
+    box-shadow: 0 2px 8px #e0e7ff;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    letter-spacing: 2px;
+}
+@media (max-width: 600px) {
+    #chatbox { max-width: 98vw; }
+    .chat-area, .input-area, #summary { padding-left: 8px; padding-right: 8px;}
+}
+/* 光标字符显示*/
+.typing::after {
+  content: '▌';
+}
+/* 光标闪烁动画*/
+.blinker::after {
+  animation: blinker 1s step-end infinite;
+}
+@keyframes blinker {
+  0% {
+    visibility: visible;
+  }
+  50% {
+    visibility: hidden;
+  }
+  100% {
+    visibility: visible;
+  }
+}

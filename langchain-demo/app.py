@@ -13,12 +13,15 @@ user_session = {
     "emotion": {},
     "feedbacks": [],
     "chat_model": None,
-    "last_answer": ""
+    "last_answer": "",
+    "sorted_emotion": []
 }
+
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/start', methods=['POST'])
 def start():
@@ -43,10 +46,13 @@ def start():
     if top_emotion == "unknown":
         return jsonify({'status': 'fail', 'msg': '无法识别面部情绪'})
 
-    user_session["emotion"] = {label: value for label, value in sorted_emotions}
+    user_session["emotion"] = {item["label"]: item["score"] for item in sorted_emotions}
     user_session["feedbacks"] = []
     user_session["last_answer"] = ""
     user_session["chat_model"] = models.get_spark_chat_model()
+    user_session["sorted_emotions"] = "，".join([
+        f"{item['label']}占{round(item['score'] * 100)}%" for item in sorted_emotions
+    ])
 
     prompt = f"观察到用户表现出“{top_emotion}”情绪，请作为心理咨询师，提出一个开放式问题，引导用户表达内心感受。问题要具体、有同理心、避免评判。"
     try:
@@ -62,6 +68,7 @@ def start():
         'details': sorted_emotions,
         'question': question
     })
+
 
 @app.route('/next', methods=['POST'])
 def next_question():
@@ -85,6 +92,7 @@ def next_question():
         'question': question
     })
 
+
 @app.route('/summary', methods=['POST'])
 def summary():
     if not user_session["feedbacks"]:
@@ -93,13 +101,14 @@ def summary():
     try:
         summary_result = summarize_emotion(
             user_session["feedbacks"],
-            user_session["emotion"],
+            user_session["sorted_emotions"],
             user_session["chat_model"]
         )
     except Exception as e:
         return jsonify({'status': 'fail', 'msg': '总结生成失败'})
 
     return jsonify({'status': 'ok', 'result': summary_result})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
