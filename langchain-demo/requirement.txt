@@ -1,0 +1,23 @@
+# Python 3.9 依赖包列表
+# Web框架
+Flask==3.0.3
+
+# 图像处理和计算机视觉
+opencv-python==4.10.0.84
+numpy==1.26.4
+
+# 深度学习框架
+tensorflow==2.19.0
+keras==3.10.0
+
+# LangChain相关
+langchain==0.2.8
+langchain-core==0.2.19
+langchain-community==0.2.7
+
+# 科大讯飞星火大模型SDK (通过langchain-community集成)
+spark-ai-python==0.4.5
+
+# 其他工具包
+Pillow==10.2.0
+requests==2.32.3
